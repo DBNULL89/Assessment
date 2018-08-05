@@ -9,7 +9,8 @@ namespace Client {
         MQCore.Core oMQgateway = new MQCore.Core();
         string sMessage;
         string sQueue = "Verify-Name";
-        string sHost = "localhost";        
+        string sHost = "localhost";
+        bool bRun = true;
 
         Console.WriteLine("Please enter name");
         sMessage = Console.ReadLine();       
@@ -21,6 +22,23 @@ namespace Client {
         Console.WriteLine("unable to process. " + oEx.Message);
         Console.WriteLine("Press anykey to terminate session.");
         Console.ReadLine();
+      }
+    }
+
+    internal void ConsoleListener() {
+      while (bRun) {
+        string scommand = Console.ReadLine();
+        switch (scommand.ToUpper()) {
+          case "HELP": {
+              Console.WriteLine("********Available Commands********");
+              Console.WriteLine("Exit - Stops all services and exit the console application");
+              break;
+            }
+          case "EXIT": {
+              bRun = false;
+              break;
+            }
+        }
       }
     }
   }

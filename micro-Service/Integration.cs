@@ -10,12 +10,15 @@ namespace micro_Service {
         Console.WriteLine("Service Started");
 
         oProcess.ManageQueues();
+        Environment.Exit(0);
       } catch (Exception oEx) {                
         Console.WriteLine("Critical error: " + oEx.Message);
         Console.WriteLine("Press anykey to terminate service.");
         Console.ReadKey();
         Console.WriteLine("Stopping all services");
         oProcess.bRun = false;
+        Task.WaitAll();
+        Console.WriteLine("Services Stopped");
       }
     }
   }
