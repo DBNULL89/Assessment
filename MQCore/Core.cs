@@ -16,6 +16,7 @@ namespace MQCore {
     protected ConnectionFactory oFactory = null;
     protected IConnection iConn = null;
     protected IModel iChannel = null;
+    protected IBasicProperties iProp = null;
     #endregion
 
 
@@ -24,7 +25,8 @@ namespace MQCore {
         if (iChannel == null) {
           ConnectMQ(sHostName);
         }
-        if (!lQueues.Contains(sQueue)) {
+        if (!lQueues.Contains(sQueue)) {          
+
           iChannel.QueueDeclare(sQueue, false, false, false, null);
 
           lQueues.Add(sQueue);
@@ -39,9 +41,12 @@ namespace MQCore {
     private void ConnectMQ(string sHostName) {
       try {
 
-        oFactory = new ConnectionFactory() { HostName = sHostName, NetworkRecoveryInterval = new TimeSpan(0, 1, 0) };
+        oFactory = new ConnectionFactory() { HostName = sHostName};
         iConn = oFactory.CreateConnection();
         iChannel = iConn.CreateModel();
+        iProp = iChannel.CreateBasicProperties();
+        iProp.Persistent = true;
+        iProp.DeliveryMode = 2;
 
         sMessage = "MQConnected";
       } catch (Exception oEx) {
@@ -50,11 +55,16 @@ namespace MQCore {
       }                  
     }
 
-    public string SendMessage(string sMessage, string sQueue, string sHostName) {
+    public string SendMessage(string sBody, string sQueue, string sHostName) {
       try {
         InitGlobal();
-        ConnectMQ(sHostName);
-        iChannel.BasicPublish(exchange: "",routingKey: sQueue,basicProperties:null, body: Encoding.UTF8.GetBytes(sMessage));
+        if (iChannel == null) {
+          ConnectMQ(sHostName);
+        }
+        iProp.Timestamp = new AmqpTimestamp((Int32)(DateTime.UtcNow.Subtract(DateTime.Now)).TotalSeconds);
+        iProp.CorrelationId = System.Guid.NewGuid().ToString();
+        iProp.MessageId = iProp.CorrelationId;
+        iChannel.BasicPublish(exchange: "", routingKey: sQueue, basicProperties: iProp, body: Encoding.UTF8.GetBytes(sBody), mandatory: true);
 
         return "Message Successfully Sent on " + sQueue;
       } catch(Exception oEx) {
@@ -70,16 +80,11 @@ namespace MQCore {
         string sBody = "";
         while (bRun) {
           EventingBasicConsumer oConsumer = new EventingBasicConsumer(iChannel);
-          //ConnectMQ(sHostName);
-          oConsumer.Received += (model, ea) => {
-            byte[] bMessage = ea.Body;            
-            sBody = Encoding.UTF8.GetString(bMessage);                 
-          };          
-          iChannel.BasicConsume(queue: sQueue, autoAck: true, consumer: oConsumer);
+          var data = iChannel.BasicGet(sQueue, true);
+          sBody = Encoding.UTF8.GetString(data.Body); 
           if (sBody.Length > 0) {
             return sBody;
           }
-          //ClearConnection();
           System.Threading.Thread.Sleep(1000);
         }
         return "";
